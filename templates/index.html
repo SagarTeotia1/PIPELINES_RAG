@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Pipeline - Document Processing & Querying</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+            background: #e3f2fd;
+        }
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .query-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        .document-card {
+            transition: transform 0.2s ease;
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .document-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 15px;
+        }
+        .loading {
+            display: none;
+        }
+        .source-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        .relevance-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row bg-primary text-white py-4">
+            <div class="col-12 text-center">
+                <h1><i class="fas fa-brain me-3"></i>RAG Pipeline</h1>
+                <p class="lead mb-0">Retrieval-Augmented Generation for Intelligent Document Processing</p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row mt-4">
+            <!-- Left Column - Upload & Documents -->
+            <div class="col-lg-6">
+                <!-- Upload Section -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-upload me-2"></i>Upload Documents</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <h5>Drag & Drop Files Here</h5>
+                            <p class="text-muted">or click to browse</p>
+                            <input type="file" id="fileInput" class="d-none" accept=".pdf,.docx,.txt" multiple>
+                            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                <i class="fas fa-folder-open me-2"></i>Browse Files
+                            </button>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Supported formats: PDF, DOCX, TXT | Max: {{ max_documents }} documents | Max size: 50MB per file
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documents List -->
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Processed Documents</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="documentsList">
+                            {% if documents %}
+                                {% for doc in documents %}
+                                <div class="document-card card mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="card-title mb-1">
+                                                    <i class="fas fa-file-{{ 'pdf' if doc.file_extension == '.pdf' else 'word' if doc.file_extension == '.docx' else 'file-text' }} me-2"></i>
+                                                    {{ doc.filename }}
+                                                </h6>
+                                                <p class="card-text text-muted mb-2">
+                                                    Size: {{ (doc.file_size / 1024) | round(1) }} KB | 
+                                                    Pages: {{ doc.total_pages }} | 
+                                                    Chunks: {{ doc.chunks_count }}
+                                                </p>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteDocument('{{ doc.document_id }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted text-center">No documents uploaded yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Query & Results -->
+            <div class="col-lg-6">
+                <!-- Query Section -->
+                <div class="query-box">
+                    <h4><i class="fas fa-search me-2"></i>Ask Questions</h4>
+                    <p>Query your uploaded documents using natural language</p>
+                    <div class="mb-3">
+                        <textarea class="form-control" id="queryInput" rows="3" placeholder="Enter your question here..."></textarea>
+                    </div>
+                    <button class="btn btn-light btn-lg" onclick="processQuery()">
+                        <i class="fas fa-paper-plane me-2"></i>Ask Question
+                    </button>
+                </div>
+
+                <!-- Results Section -->
+                <div class="card" id="resultsCard" style="display: none;">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Answer</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="queryResults"></div>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div class="text-center loading" id="loadingIndicator">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Processing your question...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Stats -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="stats-card card">
+                    <div class="card-body text-center">
+                        <h4><i class="fas fa-chart-bar me-2"></i>System Statistics</h4>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <h5>{{ stats.chroma_db.total_chunks if stats.success else 0 }}</h5>
+                                <small>Total Chunks</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h5>{{ stats.max_documents }}</h5>
+                                <small>Max Documents</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h5>{{ stats.chunk_size }}</h5>
+                                <small>Chunk Size</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h5>{{ stats.chunk_overlap }}</h5>
+                                <small>Chunk Overlap</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // File Upload Handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                uploadFile(file);
+            });
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('success', `File "${file.name}" uploaded successfully!`);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAlert('danger', `Upload failed: ${result.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                showAlert('danger', `Upload error: ${error.message}`);
+            }
+        }
+
+        // Query Processing
+        async function processQuery() {
+            const query = document.getElementById('queryInput').value.trim();
+            
+            if (!query) {
+                showAlert('warning', 'Please enter a question.');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('resultsCard').style.display = 'none';
+
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: query, n_results: 5 })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayResults(result);
+                } else {
+                    showAlert('danger', `Query failed: ${result.error}`);
+                }
+            } catch (error) {
+                showAlert('danger', `Query error: ${error.message}`);
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+        }
+
+        function displayResults(result) {
+            const resultsDiv = document.getElementById('queryResults');
+            
+            let sourcesHtml = '';
+            if (result.sources && result.sources.length > 0) {
+                sourcesHtml = `
+                    <h6 class="mb-3"><i class="fas fa-sources me-2"></i>Sources (${result.total_sources})</h6>
+                    ${result.sources.map(source => `
+                        <div class="source-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${source.filename}</strong> (Chunk ${source.chunk_index + 1})
+                                    <br>
+                                    <small class="text-muted">${source.text_preview}</small>
+                                </div>
+                                <span class="relevance-badge">
+                                    ${Math.round(source.relevance_score * 100)}% relevant
+                                </span>
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            }
+
+            resultsDiv.innerHTML = `
+                <div class="mb-3">
+                    <h6>Question:</h6>
+                    <p class="text-muted">${result.query}</p>
+                </div>
+                <div class="mb-3">
+                    <h6>Answer:</h6>
+                    <p>${result.response}</p>
+                </div>
+                ${sourcesHtml}
+            `;
+
+            document.getElementById('resultsCard').style.display = 'block';
+        }
+
+        // Document Deletion
+        async function deleteDocument(documentId) {
+            if (!confirm('Are you sure you want to delete this document?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/documents/${documentId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('success', 'Document deleted successfully!');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAlert('danger', `Deletion failed: ${result.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                showAlert('danger', `Deletion error: ${error.message}`);
+            }
+        }
+
+        // Utility Functions
+        function showAlert(type, message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Enter key to submit query
+        document.getElementById('queryInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                processQuery();
+            }
+        });
+    </script>
+</body>
+</html>

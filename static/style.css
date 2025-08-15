@@ -1,0 +1,205 @@
+/* Custom styles for RAG Pipeline */
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Smooth transitions */
+* {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Enhanced card shadows */
+.card {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 5px 25px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+/* Custom button styles */
+.btn-custom {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    color: white;
+}
+
+/* Upload area enhancements */
+.upload-area {
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-area::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.upload-area:hover::before {
+    left: 100%;
+}
+
+/* Query box enhancements */
+.query-box {
+    position: relative;
+    overflow: hidden;
+}
+
+.query-box::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.query-box:hover::after {
+    opacity: 1;
+}
+
+/* Document card enhancements */
+.document-card {
+    border-left: 4px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.document-card:hover {
+    border-left-color: #007bff;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* Source item enhancements */
+.source-item {
+    position: relative;
+    overflow: hidden;
+}
+
+.source-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    transition: width 0.3s ease;
+}
+
+.source-item:hover::before {
+    width: 8px;
+}
+
+/* Loading animation */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 10px;
+    }
+    
+    .upload-area {
+        padding: 20px;
+    }
+    
+    .query-box {
+        padding: 20px;
+    }
+    
+    .stats-card .row {
+        text-align: center;
+    }
+    
+    .stats-card .col-md-3 {
+        margin-bottom: 20px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1a1a1a;
+        color: #ffffff;
+    }
+    
+    .card {
+        background-color: #2d2d2d;
+        border-color: #404040;
+    }
+    
+    .text-muted {
+        color: #b0b0b0 !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    .btn, .upload-area, .query-box {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000;
+        box-shadow: none;
+    }
+}
